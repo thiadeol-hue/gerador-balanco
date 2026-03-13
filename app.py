@@ -3,19 +3,24 @@ import pandas as pd
 from openpyxl import load_workbook
 from io import BytesIO
 
-st.title("Gerador de Balanço CEAGESP")
-
-st.write("Envie os arquivos necessários")
+st.title("Gerador de Balanço")
 
 template = st.file_uploader("Template Excel", type=["xlsx"])
 csv_capital = st.file_uploader("CSV Capital", type=["csv"])
 csv_interior = st.file_uploader("CSV Interior", type=["csv"])
 
-if st.button("Gerar Balanço"):
+def detectar_coluna(colunas, palavras):
+for c in colunas:
+for p in palavras:
+if p in c.lower():
+return c
+return None
+
+if st.button("Gerar balanço"):
 
 ```
 if template is None or csv_capital is None or csv_interior is None:
-    st.error("Envie todos os arquivos.")
+    st.error("Envie todos os arquivos")
 else:
 
     df_cap = pd.read_csv(csv_capital, sep=";", encoding="latin1")
@@ -23,17 +28,11 @@ else:
 
     df = pd.concat([df_cap, df_int])
 
-    col_produto = None
-    col_ton = None
-
-    for c in df.columns:
-        if "prod" in c.lower():
-            col_produto = c
-        if "ton" in c.lower() or "quant" in c.lower():
-            col_ton = c
+    col_produto = detectar_coluna(df.columns, ["prod"])
+    col_ton = detectar_coluna(df.columns, ["ton", "quant", "peso"])
 
     if col_produto is None or col_ton is None:
-        st.error("Colunas Produto ou Tonelada não encontradas")
+        st.error("Não encontrei colunas de produto ou tonelada")
     else:
 
         resumo = (
@@ -44,9 +43,9 @@ else:
         )
 
         wb = load_workbook(template)
-        ws = wb.create_sheet("BALANCO_GERADO")
+        ws = wb.create_sheet("BALANCO")
 
-        ws.append(["Produto", "Toneladas"])
+        ws.append(["Produto", "Tonelada"])
 
         for _, row in resumo.iterrows():
             ws.append([row[col_produto], float(row[col_ton])])
@@ -54,10 +53,10 @@ else:
         buffer = BytesIO()
         wb.save(buffer)
 
-        st.success("Balanço gerado!")
+        st.success("Balanço gerado")
 
         st.download_button(
-            label="Baixar Excel",
+            "Baixar Excel",
             data=buffer.getvalue(),
             file_name="balanco_gerado.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
