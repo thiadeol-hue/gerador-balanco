@@ -1,76 +1,65 @@
 import streamlit as st
 import pandas as pd
+from openpyxl import load_workbook
+from io import BytesIO
 
 st.title("Gerador de Balanço CEAGESP")
 
-capital = st.file_uploader("CSV CAPITAL")
-interior = st.file_uploader("CSV INTERIOR")
+st.write("Envie os arquivos necessários")
 
-mes = st.number_input("Mês",1,12,2)
-ano = st.number_input("Ano",2020,2035,2026)
+template = st.file_uploader("Template Excel", type=["xlsx"])
+csv_capital = st.file_uploader("CSV Capital", type=["csv"])
+csv_interior = st.file_uploader("CSV Interior", type=["csv"])
 
-def ler_csv_robusto(arquivo):
-    try:
-        df = pd.read_csv(arquivo, sep=";", encoding="latin1")
-    except:
-        try:
-            df = pd.read_csv(arquivo, sep=",", encoding="latin1")
-        except:
-            df = pd.read_csv(arquivo, encoding="latin1")
-    return df
+if st.button("Gerar Balanço"):
 
-if st.button("GERAR BALANÇO"):
+```
+if template is None or csv_capital is None or csv_interior is None:
+    st.error("Envie todos os arquivos.")
+else:
 
-    if capital and interior:
+    df_cap = pd.read_csv(csv_capital, sep=";", encoding="latin1")
+    df_int = pd.read_csv(csv_interior, sep=";", encoding="latin1")
 
-        df_cap = ler_csv_robusto(capital)
-        df_int = ler_csv_robusto(interior)
+    df = pd.concat([df_cap, df_int])
 
-        df = pd.concat([df_cap, df_int], ignore_index=True)
+    col_produto = None
+    col_ton = None
 
-        df.columns = df.columns.str.strip()
+    for c in df.columns:
+        if "prod" in c.lower():
+            col_produto = c
+        if "ton" in c.lower() or "quant" in c.lower():
+            col_ton = c
 
-        produto_col = None
-        quant_col = None
+    if col_produto is None or col_ton is None:
+        st.error("Colunas Produto ou Tonelada não encontradas")
+    else:
 
-        for c in df.columns:
-            if "prod" in c.lower():
-                produto_col = c
-            if "ton" in c.lower() or "quant" in c.lower() or "kg" in c.lower():
-                quant_col = c
+        resumo = (
+            df.groupby(col_produto)[col_ton]
+            .sum()
+            .reset_index()
+            .sort_values(col_ton, ascending=False)
+        )
 
-        if produto_col is None or quant_col is None:
-            st.error("Não foi possível identificar as colunas de produto e quantidade.")
-        else:
+        wb = load_workbook(template)
+        ws = wb.create_sheet("BALANCO_GERADO")
 
-            ranking = (
-                df.groupby(produto_col)[quant_col]
-                .sum()
-                .reset_index()
-                .sort_values(quant_col, ascending=False)
-            )
+        ws.append(["Produto", "Toneladas"])
 
-            top20 = ranking.head(20)
+        for _, row in resumo.iterrows():
+            ws.append([row[col_produto], float(row[col_ton])])
 
-            resumo = pd.DataFrame({
-                "Indicador": [
-                    "Total de produtos",
-                    "Volume total"
-                ],
-                "Valor": [
-                    ranking.shape[0],
-                    ranking[quant_col].sum()
-                ]
-            })
+        buffer = BytesIO()
+        wb.save(buffer)
 
-            nome = f"Balanco_{mes:02d}_{ano}.xlsx"
+        st.success("Balanço gerado!")
 
-            with pd.ExcelWriter(nome, engine="openpyxl") as writer:
-
-                df.to_excel(writer, sheet_name="Dados Consolidados", index=False)
-                ranking.to_excel(writer, sheet_name="Ranking Produtos", index=False)
-                top20.to_excel(writer, sheet_name="Top 20", index=False)
-                resumo.to_excel(writer, sheet_name="Resumo", index=False)
-
-            with open(nome, "rb") as f:
-                st.download_button("Baixar Balanço", f, file_name=nome)
+        st.download_button(
+            label="Baixar Excel",
+            data=buffer.getvalue(),
+            file_name="balanco_gerado.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+```
