@@ -13,8 +13,8 @@ if st.button("GERAR BALANÇO"):
 
     if capital and interior:
 
-        df_cap = pd.read_csv(capital, sep=";")
-        df_int = pd.read_csv(interior, sep=";")
+        df_cap = pd.read_csv(capital, sep=";", encoding="latin1")
+df_int = pd.read_csv(interior, sep=";", encoding="latin1")
 
         df = pd.concat([df_cap, df_int])
 
