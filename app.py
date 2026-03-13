@@ -14,7 +14,7 @@ if st.button("GERAR BALANÇO"):
     if capital and interior:
 
         df_cap = pd.read_csv(capital, sep=";", encoding="latin1")
-df_int = pd.read_csv(interior, sep=";", encoding="latin1")
+        df_int = pd.read_csv(interior, sep=";", encoding="latin1")
 
         df = pd.concat([df_cap, df_int])
 
@@ -28,5 +28,5 @@ df_int = pd.read_csv(interior, sep=";", encoding="latin1")
 
         resumo.to_excel(nome, index=False)
 
-        with open(nome,"rb") as f:
+        with open(nome, "rb") as f:
             st.download_button("Baixar Balanço", f, file_name=nome)
